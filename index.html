@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>HealthAI — AI Healthcare Assistant</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --teal:   #00c6a7;
+      --blue:   #0ea5e9;
+      --dark:   #060d18;
+      --card:   #0c1628;
+      --border: #1a2d4a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--dark);
+      color: #e2e8f0;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    h1,h2,h3,.font-syne { font-family: 'Syne', sans-serif; }
+
+    /* Animated mesh background */
+    .mesh-bg {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 80% 60% at 10% 0%,  rgba(0,198,167,.13) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 90% 100%, rgba(14,165,233,.12) 0%, transparent 60%);
+      animation: meshShift 12s ease-in-out infinite alternate;
+    }
+    @keyframes meshShift {
+      0%   { opacity:.9; }
+      100% { opacity:1; filter:hue-rotate(20deg); }
+    }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: var(--dark); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+    .sidebar { background: var(--card); border-right: 1px solid var(--border); }
+
+    .bubble-user {
+      background: linear-gradient(135deg, #0ea5e9, #0369a1);
+      border-radius: 18px 18px 4px 18px;
+    }
+    .bubble-bot {
+      background: #111e35;
+      border: 1px solid var(--border);
+      border-radius: 18px 18px 18px 4px;
+    }
+
+    .pill {
+      border: 1px solid var(--border);
+      background: transparent;
+      transition: all .2s ease;
+      cursor: pointer;
+      text-align: left;
+    }
+    .pill:hover {
+      border-color: var(--teal);
+      background: rgba(0,198,167,.08);
+      color: var(--teal);
+      transform: translateY(-1px);
+    }
+
+    .send-btn {
+      background: linear-gradient(135deg, var(--teal), var(--blue));
+      transition: all .2s ease;
+    }
+    .send-btn:hover { opacity:.85; transform:scale(1.03); }
+    .send-btn:disabled { opacity:.4; cursor:not-allowed; transform:none; }
+
+    .chat-input {
+      background: #0c1628;
+      border: 1px solid var(--border);
+      color: #e2e8f0;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .chat-input:focus { border-color: var(--teal); }
+    .chat-input::placeholder { color: #4a6080; }
+
+    .dot { animation: bounce .9s infinite; background: var(--teal); border-radius:50%; display:inline-block; }
+    .dot:nth-child(2) { animation-delay:.15s; }
+    .dot:nth-child(3) { animation-delay:.3s; }
+    @keyframes bounce {
+      0%,80%,100% { transform:translateY(0); }
+      40%          { transform:translateY(-6px); }
+    }
+
+    .msg-in { animation: fadeUp .35s ease forwards; opacity:0; }
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(10px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+
+    .logo-dot {
+      width:9px; height:9px; border-radius:50%;
+      background: var(--teal);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { box-shadow:0 0 0 0 rgba(0,198,167,.5); }
+      50%      { box-shadow:0 0 0 7px rgba(0,198,167,0); }
+    }
+
+    /* API key modal */
+    .modal-bg {
+      position:fixed; inset:0; z-index:100;
+      background:rgba(6,13,24,.92);
+      backdrop-filter:blur(8px);
+      display:flex; align-items:center; justify-content:center;
+    }
+    .modal-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2rem;
+      width: 90%;
+      max-width: 440px;
+    }
+    .key-input {
+      background:#060d18;
+      border:1px solid var(--border);
+      color:#e2e8f0;
+      outline:none;
+      transition:border-color .2s;
+      width:100%;
+      padding:.75rem 1rem;
+      border-radius:12px;
+      font-size:.875rem;
+      font-family:'DM Sans',sans-serif;
+      margin-top:.5rem;
+    }
+    .key-input:focus { border-color:var(--teal); }
+
+    #chatMessages { scroll-behavior:smooth; }
+
+    @media (max-width:768px) {
+      #sidebar { transform:translateX(-100%); transition:transform .3s ease; position:fixed; z-index:50; height:100vh; }
+      #sidebar.open { transform:translateX(0); }
+    }
+  </style>
+</head>
+<body>
+<div class="mesh-bg"></div>
+
+<!-- ── API KEY MODAL ─────────────────────────────────────────────────────────── -->
+<div class="modal-bg" id="apiModal">
+  <div class="modal-box">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="logo-dot"></div>
+      <span style="font-family:'Syne',sans-serif;font-size:1.25rem;font-weight:700;color:white">
+        Health<span style="color:var(--teal)">AI</span>
+      </span>
+    </div>
+    <h2 style="font-family:'Syne',sans-serif;font-weight:700;font-size:1.1rem;color:white;margin-bottom:.5rem">
+      Enter Your Groq API Key
+    </h2>
+    <p class="text-slate-400 text-sm mb-4 leading-relaxed">
+      Get a <strong class="text-white">free</strong> API key from
+      <a href="https://console.groq.com/keys" target="_blank" style="color:var(--teal);text-decoration:underline">console.groq.com/keys</a>
+      — takes 30 seconds. Your key is stored only in your browser.
+    </p>
+    <label class="text-xs text-slate-500 font-medium uppercase tracking-wider">Groq API Key</label>
+    <input id="apiKeyInput" type="password" class="key-input" placeholder="gsk_xxxxxxxxxxxxxxxxxxxx"
+      onkeydown="if(event.key==='Enter') saveKey()" />
+    <div class="flex items-center gap-2 mt-2 mb-4">
+      <input type="checkbox" id="showKey" onchange="document.getElementById('apiKeyInput').type=this.checked?'text':'password'" />
+      <label for="showKey" class="text-xs text-slate-500 cursor-pointer">Show key</label>
+    </div>
+    <button onclick="saveKey()" class="send-btn w-full py-3 rounded-xl font-bold text-white text-sm"
+      style="font-family:'Syne',sans-serif">
+      Start Chatting ➤
+    </button>
+    <p class="text-[10px] text-slate-600 text-center mt-3">
+      🔒 Key stored in localStorage — never sent anywhere except Groq's API
+    </p>
+  </div>
+</div>
+
+<!-- ── MAIN LAYOUT ───────────────────────────────────────────────────────────── -->
+<div class="relative z-10 flex h-screen overflow-hidden">
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar" class="sidebar w-72 flex flex-col flex-shrink-0">
+
+    <div class="flex items-center gap-3 px-6 py-5 border-b border-[#1a2d4a]">
+      <div class="logo-dot"></div>
+      <span style="font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700;color:white">
+        Health<span style="color:var(--teal)">AI</span>
+      </span>
+      <span class="ml-auto text-xs px-2 py-0.5 rounded-full border border-[#1a2d4a] text-slate-400">v2.0</span>
+    </div>
+
+    <!-- Status -->
+    <div class="mx-4 mt-4 px-4 py-3 rounded-xl" style="background:#0a1c30;border:1px solid #1a2d4a">
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-emerald-400" style="box-shadow:0 0 8px #34d399"></span>
+        <span class="text-xs text-emerald-400 font-medium">AI Online — LLaMA 3.3</span>
+      </div>
+      <p class="text-xs text-slate-500 mt-0.5">Powered by Groq · Free</p>
+    </div>
+
+    <!-- Quick Questions -->
+    <div class="px-4 mt-5">
+      <p class="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3"
+         style="font-family:'Syne',sans-serif">Quick Questions</p>
+      <div class="flex flex-col gap-2" id="quickBtns"></div>
+    </div>
+
+    <div class="flex-1"></div>
+
+    <!-- Change key + Clear -->
+    <div class="px-4 pb-5 space-y-2">
+      <button onclick="changeKey()"
+        class="w-full py-2.5 rounded-xl text-sm font-medium text-slate-400 border border-[#1a2d4a] hover:border-teal-500 hover:text-teal-400 transition-all">
+        🔑 Change API Key
+      </button>
+      <button onclick="clearChat()"
+        class="w-full py-2.5 rounded-xl text-sm font-medium text-red-400 border border-red-900 hover:bg-red-900/20 transition-all">
+        🗑 Clear Conversation
+      </button>
+      <p class="text-[10px] text-slate-600 leading-relaxed text-center">
+        ⚠️ Educational purposes only. Not medical advice.
+      </p>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="flex-1 flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="flex items-center gap-4 px-6 py-4 border-b border-[#1a2d4a]"
+      style="background:rgba(6,13,24,.85);backdrop-filter:blur(12px)">
+      <button class="md:hidden text-slate-400 hover:text-white" onclick="toggleSidebar()">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+      </button>
+      <div>
+        <h1 style="font-family:'Syne',sans-serif;font-weight:700;color:white;font-size:1.1rem;line-height:1">
+          AI Healthcare Assistant
+        </h1>
+        <p class="text-xs text-slate-500 mt-0.5">Ask anything about health, symptoms & wellness</p>
+      </div>
+      <div class="ml-auto">
+        <span id="msgCount" class="text-xs text-slate-600">0 messages</span>
+      </div>
+    </header>
+
+    <!-- Chat -->
+    <div id="chatMessages" class="flex-1 overflow-y-auto px-4 py-6 space-y-5">
+      <!-- Welcome -->
+      <div class="max-w-2xl mx-auto msg-in">
+        <div class="bubble-bot p-5 rounded-2xl">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-9 h-9 rounded-full flex items-center justify-center text-lg"
+              style="background:linear-gradient(135deg,#00c6a7,#0ea5e9)">🤖</div>
+            <div>
+              <p style="font-family:'Syne',sans-serif;font-weight:700;color:white;font-size:.875rem">HealthAI</p>
+              <p class="text-slate-500" style="font-size:.65rem">Just now</p>
+            </div>
+          </div>
+          <p class="text-slate-300 text-sm leading-relaxed">
+            👋 Hello! I'm your <span style="color:var(--teal);font-weight:600">AI Healthcare Assistant</span>. I can help you with:
+          </p>
+          <div class="grid grid-cols-2 gap-2 mt-3">
+            <div class="text-xs text-slate-400 px-3 py-2 rounded-lg" style="background:#0a1c30">🩺 Symptom information</div>
+            <div class="text-xs text-slate-400 px-3 py-2 rounded-lg" style="background:#0a1c30">🥗 Diet & Nutrition</div>
+            <div class="text-xs text-slate-400 px-3 py-2 rounded-lg" style="background:#0a1c30">💊 Medical terms</div>
+            <div class="text-xs text-slate-400 px-3 py-2 rounded-lg" style="background:#0a1c30">🧘 Wellness tips</div>
+          </div>
+          <p class="text-slate-400 text-sm mt-3">How can I help you today?</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div class="px-4 pb-5 pt-2 border-t border-[#1a2d4a]"
+      style="background:rgba(6,13,24,.95);backdrop-filter:blur(10px)">
+      <div class="max-w-3xl mx-auto flex gap-3">
+        <input id="userInput" type="text"
+          class="chat-input flex-1 px-5 py-3.5 rounded-2xl text-sm"
+          placeholder="Describe your symptoms or ask a health question…"
+          onkeydown="if(event.key==='Enter') sendMessage()"
+        />
+        <button id="sendBtn" onclick="sendMessage()"
+          class="send-btn px-5 py-3.5 rounded-2xl text-sm text-white whitespace-nowrap"
+          style="font-family:'Syne',sans-serif;font-weight:700">
+          Send ➤
+        </button>
+      </div>
+      <p class="text-center mt-2" style="font-size:.65rem;color:#374151">
+        Press Enter or click Send · Not a substitute for professional medical advice
+      </p>
+    </div>
+  </main>
+</div>
+
+<script>
+// ── Constants ─────────────────────────────────────────────────────────────────
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+const MODEL    = "llama-3.3-70b-versatile";
+const SYSTEM_PROMPT = `You are HealthAI, a knowledgeable and empathetic AI Healthcare Assistant for educational purposes.
+Your role:
+1. Provide clear, accurate general health information
+2. Explain medical terms in simple language
+3. Offer wellness, nutrition, and lifestyle tips
+4. Help users understand symptoms (without diagnosing)
+5. Always encourage consulting real doctors for personal medical concerns
+Guidelines:
+- Be warm, supportive, and easy to understand
+- Use bullet points when helpful
+- Keep responses concise (150-250 words)
+- Never diagnose, prescribe, or replace professional medical advice`;
+
+const QUICK_QUESTIONS = [
+  "What are symptoms of diabetes?",
+  "How to lower blood pressure naturally?",
+  "What foods boost immunity?",
+  "Signs of anxiety & how to manage?",
+  "How much sleep does an adult need?",
+  "What is BMI & how to calculate?",
+];
+
+let chatHistory  = [];
+let messageCount = 0;
+let GROQ_API_KEY = "";
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+window.onload = () => {
+  const saved = localStorage.getItem("groq_api_key");
+  if (saved) { GROQ_API_KEY = saved; hideModal(); }
+  buildQuickBtns();
+};
+
+function buildQuickBtns() {
+  const c = document.getElementById('quickBtns');
+  QUICK_QUESTIONS.forEach(q => {
+    const b = document.createElement('button');
+    b.className = 'pill text-xs text-slate-400 px-3 py-2.5 rounded-xl';
+    b.textContent = q;
+    b.onclick = () => { document.getElementById('userInput').value = q; sendMessage(); };
+    c.appendChild(b);
+  });
+}
+
+// ── API Key modal ─────────────────────────────────────────────────────────────
+function saveKey() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (!key.startsWith('gsk_')) {
+    alert('Please enter a valid Groq API key starting with gsk_');
+    return;
+  }
+  GROQ_API_KEY = key;
+  localStorage.setItem("groq_api_key", key);
+  hideModal();
+}
+function hideModal() { document.getElementById('apiModal').style.display = 'none'; }
+function changeKey() {
+  document.getElementById('apiKeyInput').value = '';
+  document.getElementById('apiModal').style.display = 'flex';
+}
+
+// ── Send Message ──────────────────────────────────────────────────────────────
+async function sendMessage() {
+  const input   = document.getElementById('userInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const text    = input.value.trim();
+  if (!text || !GROQ_API_KEY) return;
+
+  input.value = '';
+  sendBtn.disabled = true;
+  sendBtn.textContent = '…';
+
+  appendMessage('user', text);
+  chatHistory.push({ role: 'user', content: text });
+
+  const typingId = showTyping();
+
+  try {
+    const res = await fetch(GROQ_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'User-Agent': 'Mozilla/5.0'
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...chatHistory],
+        max_tokens: 400,
+        temperature: 0.7
+      })
+    });
+
+    const data = await res.json();
+    removeTyping(typingId);
+
+    if (!res.ok) {
+      const errMsg = data?.error?.message || 'Unknown error';
+      appendMessage('bot', `❌ API Error: ${errMsg}`);
+    } else {
+      const reply = data.choices[0].message.content.trim();
+      appendMessage('bot', reply);
+      chatHistory.push({ role: 'assistant', content: reply });
+    }
+  } catch (err) {
+    removeTyping(typingId);
+    appendMessage('bot', '🌐 Network error. Please check your internet connection.');
+  }
+
+  sendBtn.disabled = false;
+  sendBtn.textContent = 'Send ➤';
+  document.getElementById('userInput').focus();
+}
+
+// ── Append bubble ─────────────────────────────────────────────────────────────
+function appendMessage(role, text) {
+  messageCount++;
+  document.getElementById('msgCount').textContent = `${messageCount} message${messageCount>1?'s':''}`;
+
+  const c    = document.getElementById('chatMessages');
+  const wrap = document.createElement('div');
+  const now  = new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+
+  wrap.className = `msg-in max-w-2xl ${role==='user' ? 'ml-auto' : 'mx-auto'}`;
+
+  if (role === 'user') {
+    wrap.innerHTML = `
+      <div class="flex flex-col items-end gap-1">
+        <div class="bubble-user px-5 py-3 text-sm text-white leading-relaxed max-w-lg">${escHtml(text)}</div>
+        <span style="font-size:.65rem;color:#4b5563">${now}</span>
+      </div>`;
+  } else {
+    wrap.innerHTML = `
+      <div class="bubble-bot p-4 rounded-2xl">
+        <div class="flex items-center gap-2 mb-2">
+          <div class="w-7 h-7 rounded-full text-sm flex items-center justify-center"
+            style="background:linear-gradient(135deg,#00c6a7,#0ea5e9)">🤖</div>
+          <span style="font-family:'Syne',sans-serif;font-size:.75rem;font-weight:700;color:white">HealthAI</span>
+          <span style="font-size:.65rem;color:#4b5563;margin-left:auto">${now}</span>
+        </div>
+        <p class="text-slate-300 text-sm leading-relaxed" style="white-space:pre-line">${escHtml(text)}</p>
+      </div>`;
+  }
+
+  c.appendChild(wrap);
+  c.scrollTop = c.scrollHeight;
+}
+
+// ── Typing indicator ──────────────────────────────────────────────────────────
+function showTyping() {
+  const id = 'typing-' + Date.now();
+  const c  = document.getElementById('chatMessages');
+  const el = document.createElement('div');
+  el.id = id;
+  el.className = 'msg-in max-w-2xl mx-auto';
+  el.innerHTML = `
+    <div class="bubble-bot px-5 py-4 rounded-2xl inline-flex items-center gap-1.5">
+      <span class="text-xs text-slate-500 mr-1">HealthAI is thinking</span>
+      <span class="dot w-2 h-2"></span>
+      <span class="dot w-2 h-2"></span>
+      <span class="dot w-2 h-2"></span>
+    </div>`;
+  c.appendChild(el);
+  c.scrollTop = c.scrollHeight;
+  return id;
+}
+function removeTyping(id) { document.getElementById(id)?.remove(); }
+
+// ── Clear chat ────────────────────────────────────────────────────────────────
+function clearChat() {
+  chatHistory = []; messageCount = 0;
+  document.getElementById('msgCount').textContent = '0 messages';
+  document.getElementById('chatMessages').innerHTML = '';
+  appendMessage('bot', 'Chat cleared! How can I help you? 😊');
+}
+
+// ── Sidebar (mobile) ──────────────────────────────────────────────────────────
+function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+
+// ── Escape HTML ───────────────────────────────────────────────────────────────
+function escHtml(t) {
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
