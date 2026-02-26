@@ -207,13 +207,12 @@
     </div>
 
     <!-- Quick Questions -->
-    <div class="px-4 mt-5">
-      <p class="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3"
+    <div class="px-4 mt-5 flex flex-col min-h-0 flex-1">
+      <p class="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-2 flex-shrink-0"
          style="font-family:'Syne',sans-serif">Quick Questions</p>
-      <div class="flex flex-col gap-2" id="quickBtns"></div>
+      <div class="overflow-y-auto flex-1 pr-1 space-y-0" id="quickBtns"
+        style="scrollbar-width:thin;scrollbar-color:#1a2d4a transparent"></div>
     </div>
-
-    <div class="flex-1"></div>
 
     <!-- Change key + Clear -->
     <div class="px-4 pb-5 space-y-2">
@@ -320,12 +319,31 @@ Guidelines:
 - Never diagnose, prescribe, or replace professional medical advice`;
 
 const QUICK_QUESTIONS = [
-  "What are symptoms of diabetes?",
-  "How to lower blood pressure naturally?",
-  "What foods boost immunity?",
-  "Signs of anxiety & how to manage?",
-  "How much sleep does an adult need?",
-  "What is BMI & how to calculate?",
+  { cat: "🩺 Health",    q: "What are symptoms of diabetes?" },
+  { cat: "🩺 Health",    q: "How to lower blood pressure naturally?" },
+  { cat: "🩺 Health",    q: "What are early signs of a heart attack?" },
+  { cat: "🩺 Health",    q: "What causes chronic fatigue?" },
+  { cat: "🩺 Health",    q: "How to improve digestion naturally?" },
+  { cat: "🩺 Health",    q: "What are symptoms of thyroid problems?" },
+  { cat: "🩺 Health",    q: "How to manage type 2 diabetes with diet?" },
+  { cat: "🩺 Health",    q: "What are signs of vitamin D deficiency?" },
+  { cat: "🩺 Health",    q: "How to reduce cholesterol naturally?" },
+  { cat: "🩺 Health",    q: "What foods help with anemia?" },
+  { cat: "🧠 Mental",    q: "Signs of anxiety & how to manage it?" },
+  { cat: "🧠 Mental",    q: "How to deal with stress effectively?" },
+  { cat: "🧠 Mental",    q: "What are symptoms of depression?" },
+  { cat: "🧠 Mental",    q: "How much sleep does an adult need?" },
+  { cat: "🧠 Mental",    q: "How to improve sleep quality naturally?" },
+  { cat: "💪 Fitness",   q: "Best exercises to lose belly fat?" },
+  { cat: "💪 Fitness",   q: "How to build muscle as a beginner?" },
+  { cat: "💪 Fitness",   q: "What is BMI & how to calculate it?" },
+  { cat: "💪 Fitness",   q: "How many calories should I eat per day?" },
+  { cat: "💪 Fitness",   q: "Best diet plan for weight loss?" },
+  { cat: "💪 Fitness",   q: "How to stay hydrated during workouts?" },
+  { cat: "🥗 Nutrition", q: "What foods boost immunity?" },
+  { cat: "🥗 Nutrition", q: "High protein foods for vegetarians?" },
+  { cat: "🥗 Nutrition", q: "Which foods are good for gut health?" },
+  { cat: "🥗 Nutrition", q: "What vitamins should I take daily?" },
 ];
 
 let chatHistory  = [];
@@ -341,12 +359,33 @@ window.onload = () => {
 
 function buildQuickBtns() {
   const c = document.getElementById('quickBtns');
-  QUICK_QUESTIONS.forEach(q => {
-    const b = document.createElement('button');
-    b.className = 'pill text-xs text-slate-400 px-3 py-2.5 rounded-xl';
-    b.textContent = q;
-    b.onclick = () => { document.getElementById('userInput').value = q; sendMessage(); };
-    c.appendChild(b);
+  // Group by category
+  const groups = {};
+  QUICK_QUESTIONS.forEach(({ cat, q }) => {
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(q);
+  });
+
+  Object.entries(groups).forEach(([cat, questions]) => {
+    // Category label
+    const label = document.createElement('p');
+    label.className = 'text-xs font-semibold text-slate-600 uppercase tracking-widest mt-3 mb-1 px-1';
+    label.style.fontFamily = "'Syne', sans-serif";
+    label.textContent = cat;
+    c.appendChild(label);
+
+    questions.forEach(q => {
+      const b = document.createElement('button');
+      b.className = 'pill text-xs text-slate-400 px-3 py-2 rounded-xl';
+      b.textContent = q;
+      b.onclick = () => {
+        document.getElementById('userInput').value = q;
+        sendMessage();
+        // close sidebar on mobile
+        document.getElementById('sidebar').classList.remove('open');
+      };
+      c.appendChild(b);
+    });
   });
 }
 
