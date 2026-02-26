@@ -10,7 +10,7 @@ import urllib.error
 import json
 
 # ── Groq API Key ──────────────────────────────────────────────────────────────
-API_KEY = "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"
+API_KEY = "gsk_YOUR_API_KEY_HERE"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 MODEL    = "llama-3.3-70b-versatile"
 # ─────────────────────────────────────────────────────────────────────────────
@@ -78,4 +78,5 @@ def get_ai_response(chat_history: list) -> str:
         return "🌐 Connection error. Please check your internet connection."
 
     except Exception as e:
+
         return f"❌ Unexpected error: {str(e)}"
